@@ -46,7 +46,9 @@ class CefRenderer {
 
         gl2.glHint(gl2.GL_POLYGON_SMOOTH_HINT, gl2.GL_NICEST);
 
-        gl2.glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+        if(!transparent_){
+            gl2.glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+        }
 
         // Necessary for non-power-of-2 textures to render correctly.
         gl2.glPixelStorei(gl2.GL_UNPACK_ALIGNMENT, 1);
@@ -87,16 +89,18 @@ class CefRenderer {
         gl2.glLoadIdentity();
 
         // Draw the background gradient.
-        gl2.glPushAttrib(gl2.GL_ALL_ATTRIB_BITS);
-        gl2.glBegin(gl2.GL_QUADS);
-        gl2.glColor4f(1.0f, 0.0f, 0.0f, 1.0f); // red
-        gl2.glVertex2f(-1.0f, -1.0f);
-        gl2.glVertex2f(1.0f, -1.0f);
-        gl2.glColor4f(0.0f, 0.0f, 1.0f, 1.0f); // blue
-        gl2.glVertex2f(1.0f, 1.0f);
-        gl2.glVertex2f(-1.0f, 1.0f);
-        gl2.glEnd();
-        gl2.glPopAttrib();
+        if(!transparent_) {
+            gl2.glPushAttrib(gl2.GL_ALL_ATTRIB_BITS);
+            gl2.glBegin(gl2.GL_QUADS);
+            gl2.glColor4f(1.0f, 0.0f, 0.0f, 1.0f); // red
+            gl2.glVertex2f(-1.0f, -1.0f);
+            gl2.glVertex2f(1.0f, -1.0f);
+            gl2.glColor4f(0.0f, 0.0f, 1.0f, 1.0f); // blue
+            gl2.glVertex2f(1.0f, 1.0f);
+            gl2.glVertex2f(-1.0f, 1.0f);
+            gl2.glEnd();
+            gl2.glPopAttrib();
+        }
 
         // Rotate the view based on the mouse spin.
         if (spin_x_ != 0) gl2.glRotatef(-spin_x_, 1.0f, 0.0f, 0.0f);

@@ -9,7 +9,7 @@ import com.jogamp.opengl.GLAutoDrawable;
 import com.jogamp.opengl.GLCapabilities;
 import com.jogamp.opengl.GLEventListener;
 import com.jogamp.opengl.GLProfile;
-import com.jogamp.opengl.awt.GLCanvas;
+import com.jogamp.opengl.awt.GLJPanel;
 
 import org.cef.CefClient;
 import org.cef.callback.CefDragData;
@@ -42,7 +42,7 @@ import javax.swing.SwingUtilities;
  */
 class CefBrowserOsr extends CefBrowser_N implements CefRenderHandler {
     private CefRenderer renderer_;
-    private GLCanvas canvas_;
+    private GLJPanel panel_;
     private long window_handle_ = 0;
     private Rectangle browser_rect_ = new Rectangle(0, 0, 1, 1); // Work around CEF issue #1437.
     private Point screenPoint_ = new Point(0, 0);
@@ -57,7 +57,7 @@ class CefBrowserOsr extends CefBrowser_N implements CefRenderHandler {
         super(client, url, context, parent, inspectAt);
         isTransparent_ = transparent;
         renderer_ = new CefRenderer(transparent);
-        createGLCanvas();
+        createGLJPanel();
     }
 
     @Override
@@ -68,7 +68,7 @@ class CefBrowserOsr extends CefBrowser_N implements CefRenderHandler {
 
     @Override
     public Component getUIComponent() {
-        return canvas_;
+        return panel_;
     }
 
     @Override
@@ -85,7 +85,7 @@ class CefBrowserOsr extends CefBrowser_N implements CefRenderHandler {
 
     private synchronized long getWindowHandle() {
         if (window_handle_ == 0) {
-            NativeSurface surface = canvas_.getNativeSurface();
+            NativeSurface surface = panel_.getNativeSurface();
             if (surface != null) {
                 surface.lockSurface();
                 window_handle_ = getWindowHandle(surface.getSurfaceHandle());
@@ -97,10 +97,11 @@ class CefBrowserOsr extends CefBrowser_N implements CefRenderHandler {
     }
 
     @SuppressWarnings("serial")
-    private void createGLCanvas() {
+    private void createGLJPanel() {
         GLProfile glprofile = GLProfile.getMaxFixedFunc(true);
         GLCapabilities glcapabilities = new GLCapabilities(glprofile);
-        canvas_ = new GLCanvas(glcapabilities) {
+        glcapabilities.setAlphaBits(8);
+        panel_ = new GLJPanel(glcapabilities) {
             @Override
             public void paint(Graphics g) {
                 createBrowserIfRequired(true);
@@ -108,12 +109,16 @@ class CefBrowserOsr extends CefBrowser_N implements CefRenderHandler {
             }
         };
 
-        canvas_.addGLEventListener(new GLEventListener() {
+        if(isTransparent_){
+            panel_.setOpaque(false);
+        }
+
+        panel_.addGLEventListener(new GLEventListener() {
             @Override
             public void reshape(
                     GLAutoDrawable glautodrawable, int x, int y, int width, int height) {
                 browser_rect_.setBounds(x, y, width, height);
-                screenPoint_ = canvas_.getLocationOnScreen();
+                screenPoint_ = panel_.getLocationOnScreen();
                 wasResized(width, height);
             }
 
@@ -133,7 +138,7 @@ class CefBrowserOsr extends CefBrowser_N implements CefRenderHandler {
             }
         });
 
-        canvas_.addMouseListener(new MouseListener() {
+        panel_.addMouseListener(new MouseListener() {
             @Override
             public void mousePressed(MouseEvent e) {
                 sendMouseEvent(e);
@@ -160,7 +165,7 @@ class CefBrowserOsr extends CefBrowser_N implements CefRenderHandler {
             }
         });
 
-        canvas_.addMouseMotionListener(new MouseMotionListener() {
+        panel_.addMouseMotionListener(new MouseMotionListener() {
             @Override
             public void mouseMoved(MouseEvent e) {
                 sendMouseEvent(e);
@@ -172,14 +177,14 @@ class CefBrowserOsr extends CefBrowser_N implements CefRenderHandler {
             }
         });
 
-        canvas_.addMouseWheelListener(new MouseWheelListener() {
+        panel_.addMouseWheelListener(new MouseWheelListener() {
             @Override
             public void mouseWheelMoved(MouseWheelEvent e) {
                 sendMouseWheelEvent(e);
             }
         });
 
-        canvas_.addKeyListener(new KeyListener() {
+        panel_.addKeyListener(new KeyListener() {
             @Override
             public void keyTyped(KeyEvent e) {
                 sendKeyEvent(e);
@@ -196,8 +201,8 @@ class CefBrowserOsr extends CefBrowser_N implements CefRenderHandler {
             }
         });
 
-        canvas_.setFocusable(true);
-        canvas_.addFocusListener(new FocusListener() {
+        panel_.setFocusable(true);
+        panel_.addFocusListener(new FocusListener() {
             @Override
             public void focusLost(FocusEvent e) {
                 setFocus(false);
@@ -212,7 +217,7 @@ class CefBrowserOsr extends CefBrowser_N implements CefRenderHandler {
         });
 
         // Connect the Canvas with a drag and drop listener.
-        new DropTarget(canvas_, new CefDropTargetListenerOsr(this));
+        new DropTarget(panel_, new CefDropTargetListenerOsr(this));
     }
 
     @Override
@@ -243,21 +248,23 @@ class CefBrowserOsr extends CefBrowser_N implements CefRenderHandler {
     @Override
     public void onPaint(CefBrowser browser, boolean popup, Rectangle[] dirtyRects,
             ByteBuffer buffer, int width, int height) {
-        canvas_.getContext().makeCurrent();
-        renderer_.onPaint(canvas_.getGL().getGL2(), popup, dirtyRects, buffer, width, height);
-        canvas_.getContext().release();
-        SwingUtilities.invokeLater(new Runnable() {
-            public void run() {
-                canvas_.display();
-            }
-        });
+        if(panel_.getContext()!=null) {
+            panel_.getContext().makeCurrent();
+            renderer_.onPaint(panel_.getGL().getGL2(), popup, dirtyRects, buffer, width, height);
+            panel_.getContext().release();
+            SwingUtilities.invokeLater(new Runnable() {
+                public void run() {
+                    panel_.display();
+                }
+            });
+        }
     }
 
     @Override
     public void onCursorChange(CefBrowser browser, final int cursorType) {
         SwingUtilities.invokeLater(new Runnable() {
             public void run() {
-                canvas_.setCursor(new Cursor(cursorType));
+                panel_.setCursor(new Cursor(cursorType));
             }
         });
     }
